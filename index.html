@@ -1,0 +1,186 @@
+
+<!Doctype html>
+<html lang="en">
+  <head>
+    <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.21.1/babel.min.js"></script>
+    <script src="https://unpkg.com/axios@0.20.0-0/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script
+      src="https://unpkg.com/react-bootstrap@next/dist/react-bootstrap.min.js"
+      crossorigin></script>
+
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+      integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk"
+      crossorigin="anonymous"
+    />
+    <script src="http://localhost:5000/LogsAnalytics.js"></script>
+    <style>
+      body {
+        padding: 1em;
+      }
+
+      .info {
+        color: blue
+      }
+
+      .debug {
+        color: green
+      }
+
+      .warning {
+        color: orange
+      }
+
+      .error .critical {
+        color: red
+      }
+
+      pre {
+        white-space: pre-wrap;       /* Since CSS 2.1 */
+        white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+        white-space: -pre-wrap;      /* Opera 4-6 */
+        white-space: -o-pre-wrap;    /* Opera 7 */
+        word-wrap: break-word;       /* Internet Explorer 5.5+ */
+      }
+
+    </style>
+    
+    <script type="text/babel">
+      window.onload = function () {
+        const Form = ReactBootstrap.Form
+        const Row = ReactBootstrap.Row
+        const Col = ReactBootstrap.Col
+        const Container = ReactBootstrap.Container
+
+        const min_log_severity = "min_log_severity"
+
+        function Main(props){
+          const [logsAnalytics, setLogsAnalytics] = React.useState(undefined)
+          const [filter, setFilter] = React.useState({
+            min_log_severity: 1,
+            from: 0,
+            text: "",
+            type: ""
+          })
+
+          function updateFilter(field, value){
+            console.log(field, value)
+            filter[field] = value
+            setFilter({...filter})
+          }
+
+          if (logsAnalytics === undefined){
+            axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*'
+            axios.get('http://localhost:5000/autoinst-log.txt').then((result)=>{
+              console.log(result.data)
+              setLogsAnalytics(new LogsAnalytics(result.data))
+            })
+
+            return <p>Loading...</p>
+          }
+          
+          let logs = logsAnalytics.filter([
+            function filter_min_log_severity(item){
+              return item.numericSeverity >= filter.min_log_severity
+            },
+            function filter_from(item){
+              return item.$pos >= filter.from
+            },
+            function filter_text(item){
+              return item.message !== undefined && item.message.search(filter.text) !== -1
+            },
+            function filter_type(item){
+              return filter.type === "" || item.$type === filter.type 
+            }
+
+          ])
+          
+          let from_filter_last = undefined
+
+          return <div>
+            <Container style={{padding: "2em"}}>
+              <Row>
+                <Col>
+                  <Form.Group controlId="min-log-severity">
+                    <Form.Label>Min log severity</Form.Label>
+                    <Form.Control as="select" onChange={ e => updateFilter(min_log_severity, e.target.value)}>
+                      <option value="1">Debug</option>
+                      <option value="2">Info</option>
+                      <option value="3">Warning</option>
+                      <option value="4">Error</option>
+                      <option value="5">Critical</option>
+                    </Form.Control>
+                  </Form.Group>
+                </Col>
+                <Col>
+                  <Form.Group controlId="From">
+                    <Form.Label>From (time)</Form.Label>
+                    <Form.Control as="select" onChange={ e => updateFilter("from", e.target.value)}>
+                      {logsAnalytics.logs.map( log => {
+                          let time = log.timestamp.format("LTS")
+                          if (from_filter_last != time){
+                            from_filter_last = time
+                            return <option value={log.$pos}>{log.timestamp.format("LTS")}</option>
+                          }
+                        })}
+                    </Form.Control>
+                  </Form.Group>
+                </Col>
+                <Col>
+                  <Form.Group controlId="From">
+                    <Form.Label>Search</Form.Label>
+                    <Form.Control onChange={ e=> updateFilter("text", e.target.value)}/>
+                  </Form.Group>
+                </Col>
+                <Col>
+                  <Form.Group controlId="type">
+                    <Form.Label>Log type</Form.Label>
+                    <Form.Control as="select" onChange={ e => updateFilter("type", e.target.value)}>
+                      <option value="">all</option>
+                      {[...new Set(logsAnalytics.logs.map( log => log.$type))].map( type =>{
+                        return <option>{type}</option>
+                      })}
+                    </Form.Control>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </Container>
+
+            <table class="table">
+              <tr>
+                <th style={{width:"8em"}}>Timestamp</th>
+                <th>Severity</th>
+                <th>Message</th>
+                <th>Type</th>
+              </tr>
+              { 
+                logs.map(log => {
+                  return <tr>
+                    <td><b>{log.timestamp.format("LTS")}</b></td>
+                    <td className={log.severity}>{log.severity}</td>
+                    <td><pre>{log.message}</pre></td>  
+                    <td>{log.$type}</td>
+                  </tr>
+                })
+              }
+            </table>  
+          </div>
+        }
+
+        ReactDOM.render(
+            <Main/>,
+            document.getElementById('content')
+        );
+      }
+    </script>
+  </head>
+
+  <body>
+  	<h1>autoinst-log Analytics & query</h1>
+  	<div id="content"></div>
+  </body>
+</html>
