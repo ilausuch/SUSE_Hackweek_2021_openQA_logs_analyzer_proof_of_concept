@@ -17,7 +17,7 @@
       integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk"
       crossorigin="anonymous"
     />
-    <script src="http://localhost:5000/LogsAnalytics.js"></script>
+    <script src="/LogsAnalytics.js"></script>
     <style>
       body {
         padding: 1em;
@@ -75,7 +75,7 @@
 
           if (logsAnalytics === undefined){
             axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*'
-            axios.get('http://localhost:5000/autoinst-log.txt').then((result)=>{
+            axios.get('/autoinst-log.txt').then((result)=>{
               console.log(result.data)
               setLogsAnalytics(new LogsAnalytics(result.data))
             })
